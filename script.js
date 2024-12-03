@@ -1,5 +1,12 @@
-// script.js
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize all slider display values
+    sliders.forEach(({ sliderId, displayId }) => {
+        updateSliderValue(sliderId, displayId);
+    });
 
+    // Generate initial network
+    generateNetwork();
+});
 // SVG and dimensions
 const svg = d3.select("#network")
     .attr("width", window.innerWidth)
@@ -80,10 +87,21 @@ function generateNetwork() {
     }
 
     // Generate nodes with variable radii
-    nodes = d3.range(nodeCount).map((d, i) => ({
-        id: i,
-        radius: Math.random() * (maxNodeRadius - minNodeRadius) + minNodeRadius
-    }));
+    nodes = d3.range(nodeCount).map((d, i) => {
+        // Create an exponential distribution for radius sizes
+        // This makes bigger nodes rarer
+        const randomFactor = Math.pow(Math.random(), 4);
+        const radius = minNodeRadius + (maxNodeRadius - minNodeRadius) * randomFactor;
+
+        // Add a centeringForce that increases with radius
+        const centeringForce = radius / maxNodeRadius;
+
+        return {
+            id: i,
+            radius: radius,
+            centeringForce: centeringForce
+        };
+    });
 
     // Generate links connecting the nodes
     links = [];
@@ -119,16 +137,16 @@ function generateNetwork() {
         .force("link", d3.forceLink(links)
             .id(d => d.id)
             .distance(d => d.length)
-            .strength(2)) // Increased link strength for better spacing
+            .strength(2))
         .force("charge", d3.forceManyBody()
-            .strength(-200)  // Increased repulsion
-            .distanceMax(300)) // Limit the repulsion range
+            .strength(-200)
+            .distanceMax(300))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collision", d3.forceCollide()
-            .radius(d => d.radius * 2)  // Increased collision radius
-            .strength(1.5))  // Increased collision strength
-        .force("x", d3.forceX(width / 2).strength(0.2))
-        .force("y", d3.forceY(height / 2).strength(0.2))
+            .radius(d => d.radius * 2)
+            .strength(1.5))
+        .force("x", d3.forceX(width / 2).strength(d => d.centeringForce * 0.5))
+        .force("y", d3.forceY(height / 2).strength(d => d.centeringForce * 0.5))
         .force("boundary", () => {
             nodes.forEach(node => {
                 node.x = Math.max(node.radius, Math.min(width - node.radius, node.x));
@@ -163,6 +181,7 @@ function generateNetwork() {
             .on("end", dragended));
 
     // Simulation tick
+    // Update the simulation tick section with this enhanced path calculation
     simulation.on("tick", () => {
         // Calculate center point
         const centerX = width / 2;
@@ -189,6 +208,7 @@ function generateNetwork() {
             .attr("cx", d => d.x)
             .attr("cy", d => d.y);
     });
+
 
 }
 
@@ -227,14 +247,6 @@ sliders.forEach(({ sliderId, displayId }) => {
 
 // Generate network on button click
 document.getElementById("generateBtn").onclick = generateNetwork;
-
-// Initialize all slider display values
-sliders.forEach(({ sliderId, displayId }) => {
-    updateSliderValue(sliderId, displayId);
-});
-
-// Initial generation
-generateNetwork();
 
 // Export SVG
 document.getElementById("exportBtn").onclick = exportSVG;

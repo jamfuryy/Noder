@@ -14,6 +14,7 @@ const svg = d3.select("#network")
 
 let width = window.innerWidth;
 let height = window.innerHeight;
+let isDashedLines = false;
 
 // Attach event listeners to sliders to update displayed values
 const sliders = [
@@ -24,6 +25,7 @@ const sliders = [
     { sliderId: 'maxNodeRadius', displayId: 'maxNodeRadiusValue' },
     { sliderId: 'minLineLength', displayId: 'minLineLengthValue' },
     { sliderId: 'maxLineLength', displayId: 'maxLineLengthValue' },
+    { sliderId: 'connectionRadius', displayId: 'connectionRadiusValue' },
 ];
 
 // Add window resize listener after the existing code
@@ -50,6 +52,11 @@ sliders.forEach(({ sliderId, displayId }) => {
         updateSliderValue(sliderId, displayId);
         generateNetwork(); // Add this line to regenerate on every slider change
     });
+});
+
+document.getElementById("dashedLinesCheck").addEventListener("change", (e) => {
+    isDashedLines = e.target.checked;
+    generateNetwork();
 });
 
 // Define variables to hold nodes and links
@@ -105,23 +112,43 @@ function generateNetwork() {
 
     // Generate links connecting the nodes
     links = [];
+    const connectionRadius = +document.getElementById("connectionRadius").value;
 
-    // For each node, determine a random number of connections
+    // First, assign initial random positions to nodes
+    nodes.forEach(node => {
+        node.x = Math.random() * width;
+        node.y = Math.random() * height;
+    });
+
+    // For each node, connect only to nearby nodes
     nodes.forEach((node, i) => {
         let numConnections = Math.floor(Math.random() * (maxConnections - minConnections + 1)) + minConnections;
 
-        // Connect to random nodes
-        for (let j = 0; j < numConnections; j++) {
-            let targetIndex = Math.floor(Math.random() * nodeCount);
-            if (targetIndex !== i) {
+        // Find nearby nodes
+        const nearbyNodes = nodes.filter((otherNode, j) => {
+            if (i === j) return false;
+            const dx = node.x - otherNode.x;
+            const dy = node.y - otherNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance <= connectionRadius;
+        });
+
+        // Randomly connect to available nearby nodes
+        if (nearbyNodes.length > 0) {
+            for (let j = 0; j < Math.min(numConnections, nearbyNodes.length); j++) {
+                const randomIndex = Math.floor(Math.random() * nearbyNodes.length);
+                const targetNode = nearbyNodes[randomIndex];
+                nearbyNodes.splice(randomIndex, 1); // Remove selected node to avoid duplicate connections
+
                 links.push({
                     source: node.id,
-                    target: targetIndex,
+                    target: targetNode.id,
                     length: Math.random() * (maxLineLength - minLineLength) + minLineLength
                 });
             }
         }
     });
+
 
     // Remove duplicate links and self-loops
     links = links.filter((link, index, self) =>
@@ -159,12 +186,13 @@ function generateNetwork() {
     // Draw links
     const link = svg.append("g")
         .attr("class", "links")
-        .selectAll("path")  // Changed from "line" to "path"
+        .selectAll("path")
         .data(links)
-        .enter().append("path")  // Changed from "line" to "path"
+        .enter().append("path")
         .attr("fill", "none")
         .attr("stroke", "#161616")
-        .attr("stroke-width", 1);
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", isDashedLines ? "5,5" : "none");
 
     // Draw nodes
     const node = svg.append("g")

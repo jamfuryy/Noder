@@ -228,6 +228,11 @@ sliders.forEach(({ sliderId, displayId }) => {
 // Generate network on button click
 document.getElementById("generateBtn").onclick = generateNetwork;
 
+// Initialize all slider display values
+sliders.forEach(({ sliderId, displayId }) => {
+    updateSliderValue(sliderId, displayId);
+});
+
 // Initial generation
 generateNetwork();
 

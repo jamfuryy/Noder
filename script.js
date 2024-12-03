@@ -155,6 +155,7 @@ function generateNetwork() {
         });
 
 
+
     // Draw links
     const link = svg.append("g")
         .attr("class", "links")
@@ -245,9 +246,6 @@ sliders.forEach(({ sliderId, displayId }) => {
     });
 });
 
-// Generate network on button click
-document.getElementById("generateBtn").onclick = generateNetwork;
-
 // Export SVG
 document.getElementById("exportBtn").onclick = exportSVG;
 
@@ -272,3 +270,6 @@ function exportSVG() {
     downloadLink.click();
     document.body.removeChild(downloadLink);
 }
+
+// Add this line to bind the function to the button
+document.getElementById("exportBtn").onclick = exportSVG;

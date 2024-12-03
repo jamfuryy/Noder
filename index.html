@@ -21,8 +21,8 @@
     <!-- Controls for adjusting variables -->
     <div class="controls">
         <label for="nodeCount">Number of Nodes:</label>
-        <input type="range" id="nodeCount" min="2" max="100" value="10">
-        <span id="nodeCountValue">10</span>
+        <input type="range" id="nodeCount" min="1" max="100" value="20">
+        <span id="nodeCountValue"></span>
 
         <br>
 
@@ -41,21 +41,28 @@
         <span id="minNodeRadiusValue">5</span>
 
         <label for="maxNodeRadius">Max Node Radius:</label>
-        <input type="range" id="maxNodeRadius" min="5" max="50" value="25">
+        <input type="range" id="maxNodeRadius" min="5" max="150" value="25">
         <span id="maxNodeRadiusValue">25</span>
 
         <br>
 
-        <label for="minLineLength">Min Line Length:</label>
-        <input type="range" id="minLineLength" min="10" max="100" value="30">
-        <span id="minLineLengthValue">30</span>
+        <label for="minDistance">Min Node Distance:</label>
+        <input type="range" id="minDistance" min="10" max="200" value="50">
+        <span id="minDistanceValue"></span>
 
-        <label for="maxLineLength">Max Line Length:</label>
-        <input type="range" id="maxLineLength" min="50" max="200" value="80">
-        <span id="maxLineLengthValue">80</span>
+        <label for="maxLineLength">Max Node Distance:</label>
+        <input type="range" id="maxDistance" min="20" max="400" value="200">
+        <span id="maxDistanceValue"></span>
+
+        <input type="checkbox" id="dashedLinesCheck" name="dashedLines">
+        <label for="dashedLinesCheck">Dashed Lines</label>
+
+        <label for="connectionRadius">Connection Radius:</label>
+        <input type="range" id="connectionRadius" min="50" max="500" value="200">
+        <span id="connectionRadiusValue">200</span>
 
         <br>
-        
+
         <button id="exportBtn">Export as SVG</button>
     </div>
 

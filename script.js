@@ -57,7 +57,7 @@ function createImagePatterns(imageFiles) {
             .attr("height", "100%")
             .attr("patternContentUnits", "objectBoundingBox")
             .append("image")
-            .attr("href", `./pics/${img}`)
+            .attr("href", `pics/${img}`)
             .attr("width", 1)
             .attr("height", 1)
             .attr("preserveAspectRatio", "xMidYMid slice");

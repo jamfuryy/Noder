@@ -1,186 +1,251 @@
-// Define variables and functions first
-let nodes = [], links = [];
-let simulation;
+let nodes = [],
+    links = [];
 let width = window.innerWidth;
 let height = window.innerHeight;
-let isDashedLines = false;
+let centralNodeSize = 50;
+let imageCount = 0;
+let imageFiles = [];
+let isDashed = false;
+let isPolygonDistribution = true;
 
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+const svg = d3
+    .select("#network")
+    .attr("width", width)
+    .attr("height", height);
+
+const defs = svg.append("defs");
+
+const sliders = [
+    { sliderId: "nodeCount", displayId: "nodeCountValue" },
+    { sliderId: "minNodeRadius", displayId: "minNodeRadiusValue" },
+    { sliderId: "maxNodeRadius", displayId: "maxNodeRadiusValue" },
+    { sliderId: "centralNodeSize", displayId: "centralNodeSizeValue" },
+    { sliderId: "minDistance", displayId: "minDistanceValue" },
+    { sliderId: "maxDistance", displayId: "maxDistanceValue" },
+    { sliderId: "polygonEdges", displayId: "polygonEdgesValue" }
+];
+
+function generateRandomPosition(centerX, centerY, minDistance, maxDistance) {
+    const angle = Math.random() * 2 * Math.PI;
+    const distance = minDistance + Math.random() * (maxDistance - minDistance);
+    return {
+        x: centerX + distance * Math.cos(angle),
+        y: centerY + distance * Math.sin(angle)
     };
 }
 
-// SVG and dimensions
-const svg = d3.select("#network")
-    .attr("width", window.innerWidth)
-    .attr("height", window.innerHeight);
+function calculatePolygonPoints(centerX, centerY, radius, sides) {
+    const points = [];
+    for (let i = 0; i < sides; i++) {
+        const angle = (i * 2 * Math.PI) / sides - Math.PI / 2;
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        points.push({ x, y });
+    }
+    return points;
+}
 
-// Slider configuration
-const sliders = [
-    { sliderId: 'nodeCount', displayId: 'nodeCountValue' },
-    { sliderId: 'minConnections', displayId: 'minConnectionsValue' },
-    { sliderId: 'maxConnections', displayId: 'maxConnectionsValue' },
-    { sliderId: 'minNodeRadius', displayId: 'minNodeRadiusValue' },
-    { sliderId: 'maxNodeRadius', displayId: 'maxNodeRadiusValue' },
-    { sliderId: 'minDistance', displayId: 'minDistanceValue' },
-    { sliderId: 'maxDistance', displayId: 'maxDistanceValue' },
-    { sliderId: 'connectionRadius', displayId: 'connectionRadiusValue' },
-];
+function createImagePatterns(imageFiles) {
+    console.log('Creating patterns for images:', imageFiles);
+    defs.selectAll("*").remove();
 
-// Function to initialize or update the network
+    imageFiles.forEach((img, index) => {
+        console.log(`Creating pattern for image: ${img}`);
+        const pattern = defs.append("pattern")
+            .attr("id", `image-pattern-${index}`)
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("patternContentUnits", "objectBoundingBox")
+            .append("image")
+            .attr("href", `./pics/${img}`)
+            .attr("width", 1)
+            .attr("height", 1)
+            .attr("preserveAspectRatio", "xMidYMid slice");
+    });
+}
+
 function generateNetwork() {
     svg.selectAll("*").remove();
 
+    const minDistanceBase = +document.getElementById("minDistance").value;
+    const maxDistanceBase = +document.getElementById("maxDistance").value;
     const nodeCount = +document.getElementById("nodeCount").value;
-    const minConnections = +document.getElementById("minConnections").value;
-    const maxConnections = +document.getElementById("maxConnections").value;
+    const polygonEdges = +document.getElementById("polygonEdges").value;
     const minNodeRadius = +document.getElementById("minNodeRadius").value;
     const maxNodeRadius = +document.getElementById("maxNodeRadius").value;
-    const minDistance = +document.getElementById("minDistance").value;
-    const maxDistance = +document.getElementById("maxDistance").value;
+    centralNodeSize = +document.getElementById("centralNodeSize").value;
 
-    if (minConnections > maxConnections || minNodeRadius > maxNodeRadius || minDistance > maxDistance) {
-        alert("Min values cannot be greater than Max values.");
-        return;
-    }
+    const distance = (minDistanceBase + maxDistanceBase) / 2 + centralNodeSize;
 
-    nodes = d3.range(nodeCount).map((d, i) => {
-        const randomFactor = Math.pow(Math.random(), 4);
-        const radius = minNodeRadius + (maxNodeRadius - minNodeRadius) * randomFactor;
-        const centeringForce = Math.pow(radius / minNodeRadius, 2);
-        return {
-            id: i,
-            radius: radius,
-            centeringForce: centeringForce
-        };
-    });
+    nodes = [
+        {
+            id: 0,
+            x: width / 2,
+            y: height / 2,
+            radius: centralNodeSize,
+            isCentral: true,
+        },
+    ];
 
-    links = [];
-    const connectionRadius = +document.getElementById("connectionRadius").value;
+    if (isPolygonDistribution) {
+        const polygonPoints = calculatePolygonPoints(width / 2, height / 2, distance, polygonEdges);
+        
+        for (let i = 0; i < nodeCount; i++) {
+            const edgeIndex = Math.floor(i * polygonEdges / nodeCount);
+            const nextEdgeIndex = (edgeIndex + 1) % polygonEdges;
+            const progress = (i * polygonEdges / nodeCount) % 1;
 
-    nodes.forEach(node => {
-        node.x = Math.random() * width;
-        node.y = Math.random() * height;
-    });
+            const startPoint = polygonPoints[edgeIndex];
+            const endPoint = polygonPoints[nextEdgeIndex];
+            
+            let validPosition = false;
+            let attempts = 0;
+            let radius, x, y;
 
-    nodes.forEach((node, i) => {
-        let numConnections = Math.floor(Math.random() * (maxConnections - minConnections + 1)) + minConnections;
-        const nearbyNodes = nodes.filter((otherNode, j) => {
-            if (i === j) return false;
-            const dx = node.x - otherNode.x;
-            const dy = node.y - otherNode.y;
-            return Math.sqrt(dx * dx + dy * dy) <= connectionRadius;
-        });
+            while (!validPosition && attempts < 100) {
+                radius = minNodeRadius + Math.random() * (maxNodeRadius - minNodeRadius);
+                
+                const adjustedProgress = progress + (Math.random() - 0.5) * 0.1;
+                x = startPoint.x + (endPoint.x - startPoint.x) * adjustedProgress;
+                y = startPoint.y + (endPoint.y - startPoint.y) * adjustedProgress;
 
-        if (nearbyNodes.length > 0) {
-            for (let j = 0; j < Math.min(numConnections, nearbyNodes.length); j++) {
-                const randomIndex = Math.floor(Math.random() * nearbyNodes.length);
-                const targetNode = nearbyNodes[randomIndex];
-                nearbyNodes.splice(randomIndex, 1);
-                links.push({
-                    source: node.id,
-                    target: targetNode.id
+                let hasOverlap = false;
+                for (const node of nodes) {
+                    const dx = x - node.x;
+                    const dy = y - node.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < (radius + node.radius + 5)) {
+                        hasOverlap = true;
+                        break;
+                    }
+                }
+
+                if (!hasOverlap) {
+                    validPosition = true;
+                }
+                attempts++;
+            }
+
+            if (validPosition) {
+                nodes.push({
+                    id: i + 1,
+                    x: x,
+                    y: y,
+                    radius: radius,
+                    isCentral: false
                 });
             }
         }
-    });
+    } else {
+        for (let i = 0; i < nodeCount; i++) {
+            let validPosition = false;
+            let attempts = 0;
+            let radius, x, y;
 
-    links = links.filter((link, index, self) =>
-        link.source !== link.target &&
-        index === self.findIndex((l) => (
-            (l.source === link.source && l.target === link.target) ||
-            (l.source === link.target && l.target === link.source)
-        ))
-    );
+            while (!validPosition && attempts < 100) {
+                radius = minNodeRadius + Math.random() * (maxNodeRadius - minNodeRadius);
+                const position = generateRandomPosition(width/2, height/2, minDistanceBase, maxDistanceBase);
+                x = position.x;
+                y = position.y;
 
-    simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links)
-            .id(d => d.id)
-            .distance(d => (maxDistance + minDistance) / 2)
-            .strength(1))
-        .force("charge", d3.forceManyBody()
-            .strength(-100)
-            .distanceMin(minDistance)
-            .distanceMax(maxDistance))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide()
-            .radius(d => d.radius * 1.5)
-            .strength(1))
-        .force("x", d3.forceX(width / 2).strength(d => d.centeringForce * 0.4))
-        .force("y", d3.forceY(height / 2).strength(d => d.centeringForce * 0.4))
-        .alphaDecay(0.05)
-        .velocityDecay(0.6);
+                let hasOverlap = false;
+                for (const node of nodes) {
+                    const dx = x - node.x;
+                    const dy = y - node.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < (radius + node.radius + 5)) {
+                        hasOverlap = true;
+                        break;
+                    }
+                }
 
-    const link = svg.append("g")
-        .attr("class", "links")
+                if (!hasOverlap) {
+                    validPosition = true;
+                }
+                attempts++;
+            }
+
+            if (validPosition) {
+                nodes.push({
+                    id: i + 1,
+                    x: x,
+                    y: y,
+                    radius: radius,
+                    isCentral: false
+                });
+            }
+        }
+    }
+
+    links = nodes.slice(1).map((node) => ({
+        source: nodes[0],
+        target: node,
+    }));
+
+    const link = svg
+        .append("g")
         .selectAll("path")
         .data(links)
-        .enter().append("path")
+        .enter()
+        .append("path")
         .attr("fill", "none")
         .attr("stroke", "#161616")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", isDashedLines ? "5,5" : "none");
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", isDashed ? "5,5" : "none")
+        .attr("d", (d, i) => routeLink(d.source, d.target, i))
+        .attr("stroke-linejoin", "round");
 
-    const node = svg.append("g")
-        .attr("class", "nodes")
-        .selectAll("circle")
+    const node = svg
+        .append("g")
+        .selectAll("g")
         .data(nodes)
-        .enter().append("circle")
-        .attr("r", d => d.radius)
-        .attr("fill", "#FFDE00")
+        .enter()
+        .append("g");
+
+    node.append("circle")
+        .attr("cx", (d) => d.x)
+        .attr("cy", (d) => d.y)
+        .attr("r", (d) => d.radius)
+        .attr("fill", (d) => d.isCentral ? "#FF9900" : "white")
         .attr("stroke", "#161616")
-        .attr("stroke-width", 1)
-        .call(d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended));
+        .attr("stroke-width", 2);
 
-    simulation.on("tick", () => {
-        const centerX = width / 2;
-        const centerY = height / 2;
-
-        nodes.forEach(node => {
-            node.x = Math.max(node.radius, Math.min(width - node.radius, node.x));
-            node.y = Math.max(node.radius, Math.min(height - node.radius, node.y));
-        });
-
-        link.attr("d", d => {
-            const midX = (d.source.x + d.target.x) / 2;
-            const midY = (d.source.y + d.target.y) / 2;
-            const pullFactor = -0.2;
-            const controlX = midX + (centerX - midX) * pullFactor;
-            const controlY = midY + (centerY - midY) * pullFactor;
-            return `M${d.source.x},${d.source.y} Q${controlX},${controlY} ${d.target.x},${d.target.y}`;
-        });
-
-        node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
-    });
+    node.filter(d => !d.isCentral)
+        .append("image")
+        .attr("x", d => d.x - d.radius)
+        .attr("y", d => d.y - d.radius)
+        .attr("width", d => d.radius * 2)
+        .attr("height", d => d.radius * 2)
+        .attr("href", (d, i) => {
+            const imagePath = `./pics/${imageFiles[((i) % imageCount + imageCount) % imageCount]}`;
+            return imagePath;
+        })
+        .attr("clip-path", (d, i) => `circle(${d.radius}px at ${d.radius}px ${d.radius}px)`);
 }
 
-function dragstarted(event, d) {
-    if (!event.active) simulation.alphaTarget(0.3).restart();
-    d.fx = d.x;
-    d.fy = d.y;
+function routeLink(source, target, index) {
+    const radius = 20;
+    const midX = (source.x + target.x) / 2 + (Math.random() - 0.5) * 100;
+    const midY = (source.y + target.y) / 2 + (Math.random() - 0.5) * 100;
+
+    const points = [
+        { x: source.x, y: source.y },
+        { x: midX, y: source.y },
+        { x: midX, y: midY },
+        { x: target.x, y: midY },
+        { x: target.x, y: target.y },
+    ];
+
+    return roundedLine(points, radius);
 }
 
-function dragged(event, d) {
-    d.fx = event.x;
-    d.fy = event.y;
-}
+function roundedLine(points) {
+    const line = d3.line()
+        .x(d => d.x)
+        .y(d => d.y)
+        .curve(d3.curveBundle.beta(1));
 
-function dragended(event, d) {
-    if (!event.active) simulation.alphaTarget(0);
-    d.fx = null;
-    d.fy = null;
+    return line(points);
 }
 
 function updateSliderValue(sliderId, displayId) {
@@ -189,52 +254,39 @@ function updateSliderValue(sliderId, displayId) {
     display.textContent = slider.value;
 }
 
-const debouncedGenerateNetwork = debounce(generateNetwork, 150);
+document.addEventListener("DOMContentLoaded", () => {
+    imageFiles = ['1.jpeg', '2.jpeg', '3.jpeg', '4.jpeg', '5.jpeg', '6.jpeg', '7.jpeg', '8.jpeg', '9.jpeg', '10.jpeg', '11.jpeg',
+        '12.jpeg', '13.jpeg', '14.jpeg', '15.jpeg', '16.jpeg', '17.jpeg', '18.jpeg', '19.jpeg', '20.jpeg', '21.jpeg', '22.jpeg', '23.jpeg', '24.jpeg'
+    ];
+    imageCount = imageFiles.length;
+    generateNetwork();
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById("dashToggleBtn").onclick = function() {
+        isDashed = !isDashed;
+        generateNetwork();
+    };
+
+    document.getElementById("distributionToggleBtn").onclick = function() {
+        isPolygonDistribution = !isPolygonDistribution;
+        this.textContent = isPolygonDistribution ? "Switch to Random" : "Switch to Polygon";
+        generateNetwork();
+    };
+
     sliders.forEach(({ sliderId, displayId }) => {
         updateSliderValue(sliderId, displayId);
-
         const slider = document.getElementById(sliderId);
-        slider.addEventListener('input', () => {
+        slider.addEventListener("input", () => {
             updateSliderValue(sliderId, displayId);
-            debouncedGenerateNetwork();
+            generateNetwork();
         });
     });
 
-    document.getElementById("dashedLinesCheck").addEventListener("change", (e) => {
-        isDashedLines = e.target.checked;
-        generateNetwork();
-    });
-
-    document.getElementById("exportBtn").onclick = function exportSVG() {
-        const svgElement = document.getElementById("network");
-        const serializer = new XMLSerializer();
-        let source = serializer.serializeToString(svgElement);
-
-        if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
-            source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-        }
-
-        const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
-        const downloadLink = document.createElement("a");
-        downloadLink.href = url;
-        downloadLink.download = "network.svg";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-    };
-
-    generateNetwork();
+    document.getElementById("exportBtn").onclick = exportSVG;
 });
 
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
     width = window.innerWidth;
     height = window.innerHeight;
     svg.attr("width", width).attr("height", height);
-    if (simulation) {
-        simulation.force("center", d3.forceCenter(width / 2, height / 2));
-        simulation.alpha(0.3).restart();
-    }
+    generateNetwork();
 });

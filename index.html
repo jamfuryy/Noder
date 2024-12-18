@@ -3,9 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Procedural Network Generator</title>
+    <title>Central Node Network Generator</title>
     <style>
-        /* Layout for controls */
         .controls {
             margin-bottom: 10px;
         }
@@ -17,63 +16,57 @@
 </head>
 
 <body>
-
-    <!-- Controls for adjusting variables -->
     <div class="controls">
         <label for="nodeCount">Number of Nodes:</label>
-        <input type="range" id="nodeCount" min="1" max="100" value="20">
+        <input type="range" id="nodeCount" min="1" max="100" value="40">
         <span id="nodeCountValue"></span>
 
         <br>
 
-        <label for="minConnections">Min Connections per Node:</label>
-        <input type="range" id="minConnections" min="0" max="5" value="1">
-        <span id="minConnectionsValue">1</span>
-
-        <label for="maxConnections">Max Connections per Node:</label>
-        <input type="range" id="maxConnections" min="1" max="10" value="3">
-        <span id="maxConnectionsValue">3</span>
-
-        <br>
-
         <label for="minNodeRadius">Min Node Radius:</label>
-        <input type="range" id="minNodeRadius" min="1" max="30" value="5">
+        <input type="range" id="minNodeRadius" min="1" max="30" value="10">
         <span id="minNodeRadiusValue">5</span>
 
         <label for="maxNodeRadius">Max Node Radius:</label>
-        <input type="range" id="maxNodeRadius" min="5" max="150" value="25">
+        <input type="range" id="maxNodeRadius" min="5" max="40" value="25">
         <span id="maxNodeRadiusValue">25</span>
 
         <br>
 
-        <label for="minDistance">Min Node Distance:</label>
-        <input type="range" id="minDistance" min="10" max="200" value="50">
-        <span id="minDistanceValue"></span>
-
-        <label for="maxLineLength">Max Node Distance:</label>
-        <input type="range" id="maxDistance" min="20" max="400" value="200">
-        <span id="maxDistanceValue"></span>
-
-        <input type="checkbox" id="dashedLinesCheck" name="dashedLines">
-        <label for="dashedLinesCheck">Dashed Lines</label>
-
-        <label for="connectionRadius">Connection Radius:</label>
-        <input type="range" id="connectionRadius" min="50" max="500" value="200">
-        <span id="connectionRadiusValue">200</span>
+        <label for="centralNodeSize">Central Node Size:</label>
+        <input type="range" id="centralNodeSize" min="30" max="100" value="50">
+        <span id="centralNodeSizeValue">50</span>
 
         <br>
 
+        <label for="minDistance">Min Distance:</label>
+        <input type="range" id="minDistance" min="0" max="250" value="50">
+        <span id="minDistanceValue">100</span>
+
+        <label for="maxDistance">Max Distance:</label>
+        <input type="range" id="maxDistance" min="250" max="500" value="200">
+        <span id="maxDistanceValue">400</span>
+
+        <br>
+
+        <label for="polygonEdges">Number of Polygon Edges:</label>
+        <input type="range" id="polygonEdges" min="3" max="12" value="6">
+        <span id="polygonEdgesValue">6</span>
+        <br>
+
+
+        <!-- Add this button before the export button -->
+        <button id="dashToggleBtn">Toggle Dashed Lines</button>
+
         <button id="exportBtn">Export as SVG</button>
+
+        <button id="distributionToggleBtn">Switch to Random</button>
     </div>
 
-    <!-- SVG container -->
     <svg id="network" width="800" height="600"></svg>
 
-    <!-- Include D3.js library -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- Include your script -->
     <script src="script.js" type="module"></script>
-
 </body>
 
 </html>
